@@ -1278,7 +1278,7 @@ abstract class ModalRoute<T> extends TransitionRoute<T> with LocalHistoryRoute<T
       assert(barrierColor != _kTransparent);
       final Animation<Color> color = animation.drive(
         ColorTween(
-          begin: _kTransparent,
+          begin: barrierColor.withOpacity(0.0),
           end: barrierColor, // changedInternalState is called if this updates
         ).chain(_easeCurveTween),
       );
