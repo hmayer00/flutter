@@ -418,13 +418,17 @@ class RefreshIndicatorState extends State<RefreshIndicator> with TickerProviderS
         child: widget.child,
       ),
     );
+
+    bool showIndicator;
     if (_mode == null) {
       assert(_dragOffset == null);
       assert(_isIndicatorAtTop == null);
-      return child;
+      showIndicator = false;
+    } else {
+      assert(_dragOffset != null);
+      assert(_isIndicatorAtTop != null);
+      showIndicator = true;
     }
-    assert(_dragOffset != null);
-    assert(_isIndicatorAtTop != null);
 
     final bool showIndeterminateIndicator =
       _mode == _RefreshIndicatorMode.refresh || _mode == _RefreshIndicatorMode.done;
@@ -432,40 +436,44 @@ class RefreshIndicatorState extends State<RefreshIndicator> with TickerProviderS
     return Stack(
       children: <Widget>[
         child,
-        Positioned(
-          top: _isIndicatorAtTop ? 0.0 : null,
-          bottom: !_isIndicatorAtTop ? 0.0 : null,
-          left: 0.0,
-          right: 0.0,
-          child: SizeTransition(
-            axisAlignment: _isIndicatorAtTop ? 1.0 : -1.0,
-            sizeFactor: _positionFactor, // this is what brings it down
-            child: Container(
-              padding: _isIndicatorAtTop
-                ? EdgeInsets.only(top: widget.displacement)
-                : EdgeInsets.only(bottom: widget.displacement),
-              alignment: _isIndicatorAtTop
-                ? Alignment.topCenter
-                : Alignment.bottomCenter,
-              child: ScaleTransition(
-                scale: _scaleFactor,
-                child: AnimatedBuilder(
-                  animation: _positionController,
-                  builder: (BuildContext context, Widget child) {
-                    return RefreshProgressIndicator(
-                      semanticsLabel: widget.semanticsLabel ?? MaterialLocalizations.of(context).refreshIndicatorSemanticLabel,
-                      semanticsValue: widget.semanticsValue,
-                      value: showIndeterminateIndicator ? null : _value.value,
-                      valueColor: _valueColor,
-                      backgroundColor: widget.backgroundColor,
-                    );
-                  },
-                ),
-              ),
+        if (showIndicator) _buildIndicator(showIndeterminateIndicator),
+      ],
+    );
+  }
+
+  Widget _buildIndicator(bool showIndeterminateIndicator) {
+    return Positioned(
+      top: _isIndicatorAtTop ? 0.0 : null,
+      bottom: !_isIndicatorAtTop ? 0.0 : null,
+      left: 0.0,
+      right: 0.0,
+      child: SizeTransition(
+        axisAlignment: _isIndicatorAtTop ? 1.0 : -1.0,
+        sizeFactor: _positionFactor, // this is what brings it down
+        child: Container(
+          padding: _isIndicatorAtTop
+              ? EdgeInsets.only(top: widget.displacement)
+              : EdgeInsets.only(bottom: widget.displacement),
+          alignment: _isIndicatorAtTop
+              ? Alignment.topCenter
+              : Alignment.bottomCenter,
+          child: ScaleTransition(
+            scale: _scaleFactor,
+            child: AnimatedBuilder(
+              animation: _positionController,
+              builder: (BuildContext context, Widget child) {
+                return RefreshProgressIndicator(
+                  semanticsLabel: widget.semanticsLabel ?? MaterialLocalizations.of(context).refreshIndicatorSemanticLabel,
+                  semanticsValue: widget.semanticsValue,
+                  value: showIndeterminateIndicator ? null : _value.value,
+                  valueColor: _valueColor,
+                  backgroundColor: widget.backgroundColor,
+                );
+              },
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
