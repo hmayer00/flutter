@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:meta/meta.dart';
+import 'package:platform/platform.dart';
 
 import '../base/common.dart';
 import '../base/context.dart';
@@ -12,7 +13,7 @@ import '../base/process.dart';
 import '../base/version.dart';
 import '../convert.dart';
 import '../globals.dart' as globals;
-import 'android_studio.dart' as android_studio;
+import 'android_studio.dart';
 
 AndroidSdk get androidSdk => context.get<AndroidSdk>();
 
@@ -51,7 +52,7 @@ String getAdbPath([ AndroidSdk existingSdk ]) {
   final AndroidSdk sdk = AndroidSdk.locateAndroidSdk();
 
   if (sdk?.latestVersion == null) {
-    return os.which('adb')?.path;
+    return globals.os.which('adb')?.path;
   } else {
     return sdk?.adbPath;
   }
@@ -281,13 +282,15 @@ class AndroidSdk {
   List<AndroidSdkVersion> _sdkVersions;
   AndroidSdkVersion _latestVersion;
 
-  /// Whether the `platform-tools` directory exists in the Android SDK.
+  /// Whether the `platform-tools` or `cmdline-tools` directory exists in the Android SDK.
   ///
   /// It is possible to have an Android SDK folder that is missing this with
   /// the expectation that it will be downloaded later, e.g. by gradle or the
   /// sdkmanager. The [licensesAvailable] property should be used to determine
   /// whether the licenses are at least possibly accepted.
-  bool get platformToolsAvailable => globals.fs.directory(globals.fs.path.join(directory, 'platform-tools')).existsSync();
+  bool get platformToolsAvailable =>
+    globals.fs.directory(globals.fs.path.join(directory, 'cmdline-tools')).existsSync() ||
+    globals.fs.directory(globals.fs.path.join(directory, 'platform-tools')).existsSync();
 
   /// Whether the `licenses` directory exists in the Android SDK.
   ///
@@ -308,16 +311,31 @@ class AndroidSdk {
       } else if (globals.platform.environment.containsKey(kAndroidSdkRoot)) {
         androidHomeDir = globals.platform.environment[kAndroidSdkRoot];
       } else if (globals.platform.isLinux) {
-        if (homeDirPath != null) {
-          androidHomeDir = globals.fs.path.join(homeDirPath, 'Android', 'Sdk');
+        if (globals.fsUtils.homeDirPath != null) {
+          androidHomeDir = globals.fs.path.join(
+            globals.fsUtils.homeDirPath,
+            'Android',
+            'Sdk',
+          );
         }
       } else if (globals.platform.isMacOS) {
-        if (homeDirPath != null) {
-          androidHomeDir = globals.fs.path.join(homeDirPath, 'Library', 'Android', 'sdk');
+        if (globals.fsUtils.homeDirPath != null) {
+          androidHomeDir = globals.fs.path.join(
+            globals.fsUtils.homeDirPath,
+            'Library',
+            'Android',
+            'sdk',
+          );
         }
       } else if (globals.platform.isWindows) {
-        if (homeDirPath != null) {
-          androidHomeDir = globals.fs.path.join(homeDirPath, 'AppData', 'Local', 'Android', 'sdk');
+        if (globals.fsUtils.homeDirPath != null) {
+          androidHomeDir = globals.fs.path.join(
+            globals.fsUtils.homeDirPath,
+            'AppData',
+            'Local',
+            'Android',
+            'sdk',
+          );
         }
       }
 
@@ -331,7 +349,7 @@ class AndroidSdk {
       }
 
       // in build-tools/$version/aapt
-      final List<File> aaptBins = os.whichAll('aapt');
+      final List<File> aaptBins = globals.os.whichAll('aapt');
       for (File aaptBin in aaptBins) {
         // Make sure we're using the aapt from the SDK.
         aaptBin = globals.fs.file(aaptBin.resolveSymbolicLinksSync());
@@ -342,7 +360,7 @@ class AndroidSdk {
       }
 
       // in platform-tools/adb
-      final List<File> adbBins = os.whichAll('adb');
+      final List<File> adbBins = globals.os.whichAll('adb');
       for (File adbBin in adbBins) {
         // Make sure we're using the adb from the SDK.
         adbBin = globals.fs.file(adbBin.resolveSymbolicLinksSync());
@@ -529,26 +547,40 @@ class AndroidSdk {
     _latestVersion = _sdkVersions.isEmpty ? null : _sdkVersions.last;
   }
 
-  /// Returns the filesystem path of the Android SDK manager tool or null if not found.
+  /// Returns the filesystem path of the Android SDK manager tool.
+  ///
+  /// The sdkmanager was previously in the tools directory but this component
+  /// was marked as obsolete in 3.6.
   String get sdkManagerPath {
+    final File cmdlineTool = globals.fs.file(
+      globals.fs.path.join(directory, 'cmdline-tools', 'latest', 'bin', 'sdkmanager')
+    );
+    if (cmdlineTool.existsSync()) {
+      return cmdlineTool.path;
+    }
     return globals.fs.path.join(directory, 'tools', 'bin', 'sdkmanager');
   }
 
   /// First try Java bundled with Android Studio, then sniff JAVA_HOME, then fallback to PATH.
-  static String findJavaBinary() {
-    if (android_studio.javaPath != null) {
-      return globals.fs.path.join(android_studio.javaPath, 'bin', 'java');
+  static String findJavaBinary({
+    @required AndroidStudio androidStudio,
+    @required FileSystem fileSystem,
+    @required OperatingSystemUtils operatingSystemUtils,
+    @required Platform platform,
+  }) {
+    if (androidStudio?.javaPath != null) {
+      return fileSystem.path.join(androidStudio.javaPath, 'bin', 'java');
     }
 
-    final String javaHomeEnv = globals.platform.environment[_javaHomeEnvironmentVariable];
+    final String javaHomeEnv = platform.environment[_javaHomeEnvironmentVariable];
     if (javaHomeEnv != null) {
       // Trust JAVA_HOME.
-      return globals.fs.path.join(javaHomeEnv, 'bin', 'java');
+      return fileSystem.path.join(javaHomeEnv, 'bin', 'java');
     }
 
     // MacOS specific logic to avoid popping up a dialog window.
     // See: http://stackoverflow.com/questions/14292698/how-do-i-check-if-the-java-jdk-is-installed-on-mac.
-    if (globals.platform.isMacOS) {
+    if (platform.isMacOS) {
       try {
         final String javaHomeOutput = processUtils.runSync(
           <String>['/usr/libexec/java_home'],
@@ -559,14 +591,14 @@ class AndroidSdk {
           final List<String> javaHomeOutputSplit = javaHomeOutput.split('\n');
           if ((javaHomeOutputSplit != null) && (javaHomeOutputSplit.isNotEmpty)) {
             final String javaHome = javaHomeOutputSplit[0].trim();
-            return globals.fs.path.join(javaHome, 'bin', 'java');
+            return fileSystem.path.join(javaHome, 'bin', 'java');
           }
         }
       } catch (_) { /* ignore */ }
     }
 
     // Fallback to PATH based lookup.
-    return os.which(_javaExecutable)?.path;
+    return operatingSystemUtils.which(_javaExecutable)?.path;
   }
 
   Map<String, String> _sdkManagerEnv;
@@ -576,10 +608,16 @@ class AndroidSdk {
     if (_sdkManagerEnv == null) {
       // If we can locate Java, then add it to the path used to run the Android SDK manager.
       _sdkManagerEnv = <String, String>{};
-      final String javaBinary = findJavaBinary();
+      final String javaBinary = findJavaBinary(
+        androidStudio: globals.androidStudio,
+        fileSystem: globals.fs,
+        operatingSystemUtils: globals.os,
+        platform: globals.platform,
+      );
       if (javaBinary != null) {
-        _sdkManagerEnv['PATH'] =
-            globals.fs.path.dirname(javaBinary) + os.pathVarSeparator + globals.platform.environment['PATH'];
+        _sdkManagerEnv['PATH'] = globals.fs.path.dirname(javaBinary) +
+                                 globals.os.pathVarSeparator +
+                                 globals.platform.environment['PATH'];
       }
     }
     return _sdkManagerEnv;

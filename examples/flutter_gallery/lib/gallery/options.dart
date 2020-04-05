@@ -231,7 +231,7 @@ class _ThemeModeItem extends StatelessWidget {
               children: <Widget>[
                 const Text('Theme'),
                 Text(
-                  '${modeLabels[options.themeMode]}',
+                  modeLabels[options.themeMode],
                   style: Theme.of(context).primaryTextTheme.bodyText2,
                 ),
               ],
@@ -278,7 +278,7 @@ class _TextScaleFactorItem extends StatelessWidget {
               children: <Widget>[
                 const Text('Text size'),
                 Text(
-                  '${options.textScaleFactor.label}',
+                  options.textScaleFactor.label,
                   style: Theme.of(context).primaryTextTheme.bodyText2,
                 ),
               ],
@@ -324,7 +324,7 @@ class _VisualDensityItem extends StatelessWidget {
               children: <Widget>[
                 const Text('Visual density'),
                 Text(
-                  '${options.visualDensity.label}',
+                  options.visualDensity.label,
                   style: Theme.of(context).primaryTextTheme.bodyText2,
                 ),
               ],
@@ -413,8 +413,12 @@ class _PlatformItem extends StatelessWidget {
         return 'Fuchsia';
       case TargetPlatform.iOS:
         return 'Cupertino';
+      case TargetPlatform.linux:
+        return 'Material Desktop (linux)';
       case TargetPlatform.macOS:
         return 'Material Desktop (macOS)';
+      case TargetPlatform.windows:
+        return 'Material Desktop (Windows)';
     }
     assert(false);
     return null;
@@ -431,7 +435,7 @@ class _PlatformItem extends StatelessWidget {
               children: <Widget>[
                 const Text('Platform mechanics'),
                  Text(
-                   '${_platformLabel(options.platform)}',
+                   _platformLabel(options.platform),
                    style: Theme.of(context).primaryTextTheme.bodyText2,
                  ),
               ],

@@ -15,7 +15,6 @@ import '../base/context.dart';
 import '../base/file_system.dart';
 import '../base/io.dart';
 import '../base/net.dart';
-import '../base/os.dart';
 import '../base/utils.dart';
 import '../cache.dart';
 import '../convert.dart';
@@ -399,6 +398,7 @@ class CreateCommand extends FlutterCommand {
       androidLanguage: stringArg('android-language'),
       iosLanguage: stringArg('ios-language'),
       web: featureFlags.isWebEnabled,
+      linux: featureFlags.isLinuxEnabled,
       macos: featureFlags.isMacOSEnabled,
     );
 
@@ -490,6 +490,15 @@ To edit platform code in an IDE see https://flutter.dev/developing-packages/#edi
         globals.printStatus("When complete, type 'flutter run' from the '$relativeAppPath' "
             'directory in order to launch your app.');
         globals.printStatus('Your $application code is in $relativeAppMain');
+      }
+
+      // Warn about unstable templates. This shuold be last so that it's not
+      // lost among the other output.
+      if (featureFlags.isLinuxEnabled) {
+        globals.printStatus('');
+        globals.printStatus('WARNING: The Linux tooling and APIs are not yet stable. '
+            'You will likely need to re-create the "linux" directory after future '
+            'Flutter updates.');
       }
     }
     return FlutterCommandResult.success();
@@ -609,6 +618,7 @@ To edit platform code in an IDE see https://flutter.dev/developing-packages/#edi
     bool renderDriverTest = false,
     bool withPluginHook = false,
     bool web = false,
+    bool linux = false,
     bool macos = false,
   }) {
     flutterRoot = globals.fs.path.normalize(flutterRoot);
@@ -635,21 +645,16 @@ To edit platform code in an IDE see https://flutter.dev/developing-packages/#edi
       'withDriverTest': renderDriverTest,
       'pluginClass': pluginClass,
       'pluginDartClass': pluginDartClass,
+      'pluginCppHeaderGuard': projectName.toUpperCase(),
       'withPluginHook': withPluginHook,
       'androidLanguage': androidLanguage,
       'iosLanguage': iosLanguage,
       'flutterRevision': globals.flutterVersion.frameworkRevision,
       'flutterChannel': globals.flutterVersion.channel,
       'web': web,
+      'linux': linux,
       'macos': macos,
       'year': DateTime.now().year,
-      // For now, the new plugin schema is only used when a desktop plugin is
-      // enabled. Once the new schema is supported on stable, this should be
-      // removed, and the new schema should always be used.
-      'useNewPluginSchema': macos,
-      // If a desktop platform is included, add a workaround for #31366.
-      // When Linux and Windows are added, we will need this workaround again.
-      'includeTargetPlatformWorkaround': false,
     };
   }
 
@@ -660,14 +665,14 @@ To edit platform code in an IDE see https://flutter.dev/developing-packages/#edi
 
   int _injectGradleWrapper(FlutterProject project) {
     int filesCreated = 0;
-    fsUtils.copyDirectorySync(
+    globals.fsUtils.copyDirectorySync(
       globals.cache.getArtifactDirectory('gradle_wrapper'),
       project.android.hostAppGradleRoot,
       onFileCopied: (File sourceFile, File destinationFile) {
         filesCreated++;
         final String modes = sourceFile.statSync().modeString();
         if (modes != null && modes.contains('x')) {
-          os.makeExecutable(destinationFile);
+          globals.os.makeExecutable(destinationFile);
         }
       },
     );

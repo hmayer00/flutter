@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart' show timeDilation;
@@ -24,19 +23,7 @@ final Map<int, Color> m2SwatchColors = <int, Color>{
 };
 final MaterialColor m2Swatch = MaterialColor(m2SwatchColors[500].value, m2SwatchColors);
 
-// Sets a platform override for desktop to avoid exceptions. See
-// https://flutter.dev/desktop#target-platform-override for more info.
-// TODO(gspencergoog): Remove once TargetPlatform includes all desktop platforms.
-void _enablePlatformOverrideForDesktop() {
-  if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
-    debugDefaultTargetPlatformOverride = TargetPlatform.fuchsia;
-  }
-}
-
-void main() {
-  _enablePlatformOverrideForDesktop();
-  runApp(MyApp());
-}
+void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
   static const String _title = 'Density Test';
@@ -246,7 +233,7 @@ class _OptionsState extends State<Options> {
                       ),
                     ),
                     Text(
-                      '${widget.model.size.toStringAsFixed(3)}',
+                      widget.model.size.toStringAsFixed(3),
                       style: TextStyle(color: Colors.grey[50]),
                     ),
                   ],
@@ -261,7 +248,7 @@ class _OptionsState extends State<Options> {
                       child: SliderTheme(
                         data: controlTheme,
                         child: Slider(
-                          label: '${widget.model.density.horizontal.toStringAsFixed(1)}',
+                          label: widget.model.density.horizontal.toStringAsFixed(1),
                           min: VisualDensity.minimumDensity,
                           max: VisualDensity.maximumDensity,
                           onChanged: (double value) {
@@ -272,7 +259,7 @@ class _OptionsState extends State<Options> {
                       ),
                     ),
                     Text(
-                      '${widget.model.density.horizontal.toStringAsFixed(3)}',
+                      widget.model.density.horizontal.toStringAsFixed(3),
                       style: TextStyle(color: Colors.grey[50]),
                     ),
                   ],
@@ -287,7 +274,7 @@ class _OptionsState extends State<Options> {
                       child: SliderTheme(
                         data: controlTheme,
                         child: Slider(
-                          label: '${widget.model.density.vertical.toStringAsFixed(1)}',
+                          label: widget.model.density.vertical.toStringAsFixed(1),
                           min: VisualDensity.minimumDensity,
                           max: VisualDensity.maximumDensity,
                           onChanged: (double value) {
@@ -298,7 +285,7 @@ class _OptionsState extends State<Options> {
                       ),
                     ),
                     Text(
-                      '${widget.model.density.vertical.toStringAsFixed(3)}',
+                      widget.model.density.vertical.toStringAsFixed(3),
                       style: TextStyle(color: Colors.grey[50]),
                     ),
                   ],
@@ -401,11 +388,13 @@ class _ControlTile extends StatelessWidget {
 class _MyHomePageState extends State<MyHomePage> {
   static final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
   final OptionModel _model = OptionModel();
+  TextEditingController textController;
 
   @override
   void initState() {
     super.initState();
     _model.addListener(_modelChanged);
+    textController = TextEditingController();
   }
 
   @override
@@ -430,8 +419,36 @@ class _MyHomePageState extends State<MyHomePage> {
       primarySwatch: m2Swatch,
     );
     final Widget label = Text(_model.rtl ? 'اضغط علي' : 'Press Me');
+    textController.text = _model.rtl ? 'يعتمد القرار الجيد على المعرفة وليس على الأرقام.' : 'A good decision is based on knowledge and not on numbers.';
 
     final List<Widget> tiles = <Widget>[
+      _ControlTile(
+        label: _model.rtl ? 'حقل النص' : 'Text Field',
+        child: SizedBox(
+          width: 300,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              TextField(
+                controller: textController,
+                decoration: const InputDecoration(
+                  hintText: 'Hint',
+                  helperText: 'Helper',
+                  labelText: 'Label',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              TextField(
+                controller: textController,
+              ),
+              TextField(
+                controller: textController,
+                maxLines: 3,
+              ),
+            ],
+          ),
+        ),
+      ),
       _ControlTile(
         label: _model.rtl ? 'رقائق' : 'Chips',
         child: Column(

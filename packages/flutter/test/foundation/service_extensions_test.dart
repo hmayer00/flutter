@@ -270,6 +270,7 @@ void main() {
         r'TransformLayer#[0-9a-f]{5}\n'
         r'   owner: RenderView#[0-9a-f]{5}\n'
         r'   creator: RenderView\n'
+        r'   engine layer: (TransformEngineLayer|PersistedTransform)#[0-9a-f]{5}\n'
         r'   offset: Offset\(0\.0, 0\.0\)\n'
         r'   transform:\n'
         r'     \[0] 3\.0,0\.0,0\.0,0\.0\n'
@@ -529,11 +530,27 @@ void main() {
     extensionChangedEvent = extensionChangedEvents.last;
     expect(extensionChangedEvent['extension'], 'ext.flutter.platformOverride');
     expect(extensionChangedEvent['value'], 'iOS');
+    result = await hasReassemble(binding.testExtension('platformOverride', <String, String>{'value': 'linux'}));
+    expect(result, <String, String>{'value': 'linux'});
+    expect(binding.reassembled, 7);
+    expect(defaultTargetPlatform, TargetPlatform.linux);
+    expect(extensionChangedEvents.length, 7);
+    extensionChangedEvent = extensionChangedEvents.last;
+    expect(extensionChangedEvent['extension'], 'ext.flutter.platformOverride');
+    expect(extensionChangedEvent['value'], 'linux');
+    result = await hasReassemble(binding.testExtension('platformOverride', <String, String>{'value': 'windows'}));
+    expect(result, <String, String>{'value': 'windows'});
+    expect(binding.reassembled, 8);
+    expect(defaultTargetPlatform, TargetPlatform.windows);
+    expect(extensionChangedEvents.length, 8);
+    extensionChangedEvent = extensionChangedEvents.last;
+    expect(extensionChangedEvent['extension'], 'ext.flutter.platformOverride');
+    expect(extensionChangedEvent['value'], 'windows');
     result = await hasReassemble(binding.testExtension('platformOverride', <String, String>{'value': 'bogus'}));
     expect(result, <String, String>{'value': 'android'});
-    expect(binding.reassembled, 7);
+    expect(binding.reassembled, 9);
     expect(defaultTargetPlatform, TargetPlatform.android);
-    expect(extensionChangedEvents.length, 7);
+    expect(extensionChangedEvents.length, 9);
     extensionChangedEvent = extensionChangedEvents.last;
     expect(extensionChangedEvent['extension'], 'ext.flutter.platformOverride');
     expect(extensionChangedEvent['value'], 'android');

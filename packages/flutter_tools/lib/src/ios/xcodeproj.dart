@@ -14,7 +14,6 @@ import '../base/context.dart';
 import '../base/file_system.dart';
 import '../base/io.dart';
 import '../base/logger.dart';
-import '../base/os.dart';
 import '../base/process.dart';
 import '../base/terminal.dart';
 import '../base/utils.dart';
@@ -118,7 +117,7 @@ void _updateGeneratedEnvironmentVariablesScript({
     : project.ios.generatedEnvironmentVariableExportScript;
   generatedModuleBuildPhaseScript.createSync(recursive: true);
   generatedModuleBuildPhaseScript.writeAsStringSync(localsBuffer.toString());
-  os.chmod(generatedModuleBuildPhaseScript, '755');
+  globals.os.chmod(generatedModuleBuildPhaseScript, '755');
 }
 
 /// Build name parsed and validated from build info and manifest. Used for CFBundleShortVersionString.
@@ -168,11 +167,26 @@ List<String> _xcodeBuildSettingsLines({
     xcodeBuildSettings.add('FLUTTER_TARGET=$targetOverride');
   }
 
+  // This is an optional path to split debug info
+  if (buildInfo.splitDebugInfoPath != null) {
+    xcodeBuildSettings.add('SPLIT_DEBUG_INFO=${buildInfo.splitDebugInfoPath}');
+  }
+
+  // This is an optional path to obfuscate and output a mapping.
+  if (buildInfo.dartObfuscation) {
+    xcodeBuildSettings.add('DART_OBFUSCATION=true');
+  }
+
   // The build outputs directory, relative to FLUTTER_APPLICATION_PATH.
   xcodeBuildSettings.add('FLUTTER_BUILD_DIR=${buildDirOverride ?? getBuildDirectory()}');
 
   if (setSymroot) {
     xcodeBuildSettings.add('SYMROOT=\${SOURCE_ROOT}/../${getIosBuildDirectory()}');
+  }
+
+  // iOS does not link on Flutter in any build phase. Add the linker flag.
+  if (!useMacOSConfig) {
+    xcodeBuildSettings.add('OTHER_LDFLAGS=\$(inherited) -framework Flutter');
   }
 
   if (!project.isModule) {
@@ -195,9 +209,20 @@ List<String> _xcodeBuildSettingsLines({
 
   if (globals.artifacts is LocalEngineArtifacts) {
     final LocalEngineArtifacts localEngineArtifacts = globals.artifacts as LocalEngineArtifacts;
-    final String engineOutPath = localEngineArtifacts.engineOutPath;
+    final String engineOutPath = globals.fs.path.basename(localEngineArtifacts.engineOutPath);
+    String engineBuildMode = 'release';
+    if (engineOutPath.toLowerCase().contains('debug')) {
+      engineBuildMode = 'debug';
+    } else if (engineOutPath.toLowerCase().contains('profile')) {
+      engineBuildMode = 'profile';
+    }
     xcodeBuildSettings.add('FLUTTER_ENGINE=${globals.fs.path.dirname(globals.fs.path.dirname(engineOutPath))}');
-    xcodeBuildSettings.add('LOCAL_ENGINE=${globals.fs.path.basename(engineOutPath)}');
+    xcodeBuildSettings.add('LOCAL_ENGINE=$engineOutPath');
+    // Only write this for local engines, where it is supposed to be sticky to
+    // match the engine configuration. Avoid writing it otherwise so that it
+    // does not stick the user with the wrong build mode, particularly for
+    // existing app use cases.
+    xcodeBuildSettings.add('FLUTTER_BUILD_MODE=$engineBuildMode');
 
     // Tell Xcode not to build universal binaries for local engines, which are
     // single-architecture.
@@ -215,6 +240,10 @@ List<String> _xcodeBuildSettingsLines({
 
   if (buildInfo.trackWidgetCreation) {
     xcodeBuildSettings.add('TRACK_WIDGET_CREATION=true');
+  }
+
+  if (buildInfo.treeShakeIcons) {
+    xcodeBuildSettings.add('TREE_SHAKE_ICONS=true');
   }
 
   return xcodeBuildSettings;
@@ -306,9 +335,8 @@ class XcodeProjectInterpreter {
     final Status status = Status.withSpinner(
       timeout: const TimeoutConfiguration().fastOperation,
       timeoutConfiguration: const TimeoutConfiguration(),
-      platform: _platform,
       stopwatch: Stopwatch(),
-      supportsColor: _terminal.supportsColor,
+      terminal: _terminal,
     );
     final List<String> showBuildSettingsCommand = <String>[
       _executable,
@@ -345,8 +373,8 @@ class XcodeProjectInterpreter {
     }
   }
 
-  void cleanWorkspace(String workspacePath, String scheme) {
-    _processUtils.runSync(<String>[
+  Future<void> cleanWorkspace(String workspacePath, String scheme) async {
+    await _processUtils.run(<String>[
       _executable,
       '-workspace',
       workspacePath,
