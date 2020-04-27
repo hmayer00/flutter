@@ -2168,7 +2168,10 @@ class LeaderLayer extends ContainerLayer {
   @override
   void applyTransform(Layer child, Matrix4 transform) {
     assert(_lastOffset != null);
-    if (_lastOffset != Offset.zero)
+    // In some situations, if a keyboard covers up a container of a TextField which is
+    // itself in an overlay, the layers can get messed up. The error caused by trying to use
+    // [_lastOffset] is worse than not applying the transform.
+    if (_lastOffset != null && _lastOffset != Offset.zero)
       transform.translate(_lastOffset.dx, _lastOffset.dy);
   }
 
